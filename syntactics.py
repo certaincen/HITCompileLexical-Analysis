@@ -17,11 +17,6 @@ def fileoutput(filename):
 def stdoutput():
 	for line in result:
 		print (line)
-def addId(idstr):
-	if tmpstr not in idmaps.keys():
-		result.append('undefinded identify at '+linenum+' rows '+colnum+'cols')
-	else:
-		result.append((idmaps[tmpstr],tmpstr))
 
 def detector(content):
 	if not content:
@@ -55,7 +50,7 @@ def doToken(filename):
 			col=0
 			line+=1
 			continue
-		elif c==' ':
+		elif str.isspace(c):
 			detector(tmpstr)
 			tmpstr=''
 			continue
@@ -64,6 +59,45 @@ def doToken(filename):
 			tmpstr=''
 			result.append(('sep',c))
 			continue
+		elif c == '/':
+			tmpline=line
+			tmpcol=col
+			nextc=filein.read(1)
+			tmpcol+=1
+			if nextc == '/':
+				while 1:
+					nextc=filein.read(1)
+					if nextc == '\n':
+						col=0
+						line=tmpline+1
+						break
+					tmpcol+=1
+			elif nextc == '*':
+				commentlen=0
+				state=0
+				while 1:
+					nextc=filein.read(1)
+					if not nextc:
+						outputstr=str(line)+':'+str(col)+"  "+'unterminated /* comment'
+						result.append(outputstr)
+						filein.seek(-(commentlen+state),1)
+						tmpcol-=(commentlen+state)
+						break
+					tmpcol+=1
+					if nextc == '*':
+						state=1
+						commentlen+=1
+					elif nextc == '/' and state == 1:
+						line=tmpline
+						col=tmpcol
+						break
+					else:
+						if nextc == '\n':
+							tmpcol=0
+							tmpline+=1
+						commentlen+=1
+			continue
+
 		elif c in oplist:
 			detector(tmpstr)
 			tmpstr=''
@@ -79,6 +113,7 @@ def doToken(filename):
 			else:
 				result.append(('op',c))
 				filein.seek(-1,1)
+				col-=1
 			continue
 		elif c == '\'':
 			nextchar=filein.read(1)
@@ -126,6 +161,7 @@ def doToken(filename):
 					else:
 						result.append(('number',number))
 						filein.seek(-1,1)
+						col-=1
 						break
 			else:
 				tmpstr+=c
