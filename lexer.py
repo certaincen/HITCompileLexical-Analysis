@@ -14,8 +14,22 @@ col = 0
 
 def fileoutput(filename):
 	fileout=open(filename,'w')
+	error_fileout = open('error'+filename, 'w')
+	id_fileout = open('id'+filename, 'w')
+	number_fileout = open('number'+filename, 'w')
 	for line in result:
-		fileout.write(line+'\n')
+		fileout.write(line[0]+  ','+ line[1]+'\n')
+		if isinstance(line, tuple):
+			key = line[0]
+			if key == 'id':
+				id_fileout.write(line[0]+  ','+ line[1]+'\n')
+			if key == 'number':
+				number_fileout.write(line[0]+  ','+ line[1]+'\n')
+		else:
+			error_fileout.write(line+'\n')
+	error_fileout.close()
+	id_fileout.close()
+	number_fileout.close()
 	fileout.close()
 def stdoutput():
 	for line in result:
@@ -91,7 +105,8 @@ def get_operation(c,filein):
 			result.append(('op',opstr))
 		else:
 			result.append(('op',c))
-			result.append(('op',nextc))
+			filein.seek(-1, 1)
+			return
 	else:
 		result.append(('op',c))
 		filein.seek(-1,1)
@@ -152,7 +167,7 @@ def scientific_num_DFA(num, filein):
 	state = 0
 	while True:
 		nextc = filein.read(1)
-		if nextc == '-' and state == 0:
+		if nextc in ['-', '+'] and state == 0:
 			state = 1
 			num += nextc
 		elif str.isdigit(nextc):
@@ -191,35 +206,52 @@ def number_DFA(c, filein):
 			return
 
 
-def oct_DFA(filein):
-	global col
-	global line
-	num = '0x'
-	while True:
-		nextc = filein.read(1)
-		col += 1
-		if (str.isdigit(nextc) or nextc in oct_list):
-			num += nextc
-		else:
-			col -= 1
-			result.append(('number', num))
-			filein.seek(-1,1)
-			return
-
-
 def hex_DFA(filein):
 	global col
 	global line
+	num = '0x'
+	errorflag = 0
+	while True:
+		nextc = filein.read(1)
+		col += 1
+		if str.isdigit(nextc) or (nextc in oct_list):
+			num += nextc
+		elif nextc in seperatelist or nextc in oplist:
+			col -= 1
+			if (errorflag == 0):
+				result.append(('number', num))
+			else:
+				outputstr = str(line)+':'+str(col)+"  "+'illegal hex number'
+				result.append(outputstr)
+				filein.seek(-1, 1)
+			return
+		else:
+			errorflag = 1
+			num += nextc
+
+
+def oct_DFA(c, filein):
+	global col
+	global line
+	errorflag = 0
+	num = '0' + c
 	while True:
 		nextc = filein.read(1)
 		col += 1
 		if (str.isdigit(nextc) and nextc not in ['8', '9']):
 			num += nextc
-		else:
+		elif nextc in seperatelist or nextc in oplist:
 			col -= 1
-			result.append(('number', num))
-			filein.seek(-1,1)
+			if (errorflag == 0):
+				result.append(('number', num))
+			else:
+				outputstr = str(line)+':'+str(col)+"  "+'illegal oct number'
+				result.append(outputstr)
+				filein.seek(-1, 1)
 			return
+		else:
+			errorflag = 1
+			num += nextc
 
 
 
@@ -253,6 +285,7 @@ def doToken(filename):
 			if (is_comment(filein)):
 				continue
 		elif c == '-':
+			#print("##############")
 			nextc = filein.read(1)
 			if (str.isdigit(nextc)):
 				filein.seek(-1, 1)
@@ -275,9 +308,9 @@ def doToken(filename):
 			if not tmpstr:
 				nextc = filein.read(1)
 				col += 1
-				if (c == 0 and nextc in ['x', 'X'] ):
+				if c == '0' and (nextc in ['x', 'X']):
 					hex_DFA(filein)
-				if (c == 0 and str.isdigit(nextc)):
+				elif c == '0' and str.isdigit(nextc):
 					oct_DFA(nextc, filein)
 				else:
 					col -= 1
