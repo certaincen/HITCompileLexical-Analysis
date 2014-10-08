@@ -2,55 +2,104 @@
 # -*- coding: utf-8 -*-
 import sys
 import re
-keywords=['auto','int','double','long','char','float','short','signed','unsigned','struct','union','enum','static','switch','case','default','break','register','const','volatile','typedef','extern','return','void','continue','do','while','if','else','for','goto','sizeof']
+keywords=['auto','int','double','long','char','float','short','signed','unsigned','struct','union','enum','static',
+'switch','case','default','break','register','const','volatile','typedef','extern','return','void','continue',
+'do','while','if','else','for','goto','sizeof']
 seperatelist=['{', '}', '[', ']', '(', ')', '~', ',', ';', '.', '#', '?', ':']
-oplist=['+', '++', '-', '--', '*', '/', '>', '<', '>=', '<=', '=', '==', '!=', '!', '*=', '/=', '+=', '-=']
+oplist=['<<', '>>', '<', '<=', '>', '>=', '=', '==', '|', '||', '|=', '^', '^=', '&', '&&', '&=', '%', '%=', '+', '++', '+=', '-', '--', '-=', '/', '/=', '*', '*=', '!', '!=']
 oct_list= ['A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'E', 'e']
 ES_list = ['\\', 't', 'a', 'b', 'f', 'n', 'r', 't', 'v', '\'', '\"', '0']
-idmaps=[]
+dict_id = {'|=': '56', '>=': '51', '>>': '47', '*=': '73', 'int': '5', '++': '65', '<<': '46', 'float': '4', ',': '40', 'char': '1', '&=': '61', 'static': '28', '/': '70', 'sizeof': '30', '!=': '75', 'id': '=', 'if': '18', '!': '74', '\'': '75', '\"': '76','typedef': '31', 'const': '29', 'struct': '9', 'for': '13', '&': '59', 'union': '10', '(': '37', '+': '64', '*': '72', '-': '67', 'unsigned': '11', 'long': '6', '.': '42', 'switch': '21', 'volatile': '32', '//': '100', '^=': '58', ';': '41', ':': '45', '=': '52', '<': '48', '?': '44', '>': '50', 'do': '14', '<=': '49', 'return': '24', 'goto': '20', '==': '53', 'auto': '25', 'void': '12', 'enum': '3', '#': '43', 'else': '19', 'break': '16', '/=': '71', '*/': '102', '&&': '60', 'extern': '26', '%': '62', '[': '35', ']': '36', '^': '57', 'case': '22', '%=': '63', '||': '55', 'short': '7', '/*': '101', 'default': '23', 'double': '2', '--': '68', 'register': '27', 'signed': '8', ')': '38', 'while': '15', 'continue': '17', '-=': '69', '{': '33', '}': '34', '|': '54', '+=': '66', '~': '39', 'number': '91', 'const': '92', 'id':'90'}
 result=[]
+idmaps = {}
 line = 1
 col = 0
+idnum = 0
+
+
+'''标准输出格式的函数
+'''
+def get_std_output(lines):
+	outputstr = '< '
+	if lines[0] in dict_id:
+		outputstr += (lines[0]+', '+dict_id[lines[0]]+', '+lines[1])
+	elif lines[1] in dict_id:
+		outputstr += (lines[0]+', '+dict_id[lines[1]]+', '+lines[1])
+	else:
+		outputstr += (lines[0]+', '+'?????'+', '+lines[1])
+	if (lines[0] == 'id'):
+		outputstr += str(', ' + str(idmaps[lines[1]][0]))
+	outputstr += ' >'
+	return outputstr
+
+'''文件输出函数
+'''
 
 def fileoutput(filename):
 	fileout=open(filename,'w')
 	error_fileout = open('error'+filename, 'w')
 	id_fileout = open('id'+filename, 'w')
 	number_fileout = open('number'+filename, 'w')
-	for line in result:
-		fileout.write(line[0]+  ','+ line[1]+'\n')
-		if isinstance(line, tuple):
-			key = line[0]
-			if key == 'id':
-				id_fileout.write(line[0]+  ','+ line[1]+'\n')
-			if key == 'number':
-				number_fileout.write(line[0]+  ','+ line[1]+'\n')
+	sep_fileout = open('sep'+filename, 'w')
+
+	for key in idmaps.keys():
+		id_fileout.write(key+  ', '+ str(idmaps[key][0]) + ' ' + str(idmaps[key][1]) + '\n')
+	for lines in result:
+		if isinstance(lines, tuple):
+			outputstr = get_std_output(lines)
+			fileout.write(outputstr + '\n')
 		else:
-			error_fileout.write(line+'\n')
+			fileout.write(lines + '\n')
+		if isinstance(lines, tuple):
+			key = lines[0]
+			#if key == 'id':
+			#	id_fileout.write(lines[0]+  ','+ lines[1]+' ')
+			#	id_fileout.write(str(idmaps[lines[1]][0]) + ' ' + str(idmaps[lines[1]][1]) + '\n')
+			if key == 'sep':
+				sep_fileout.write(lines[0]+  ' , '+ lines[1]+'\n')
+			if key == 'number':
+				number_fileout.write(lines[0]+  ' , '+ lines[1]+'\n')
+		else:
+			error_fileout.write(lines+'\n')
 	error_fileout.close()
 	id_fileout.close()
 	number_fileout.close()
 	fileout.close()
-def stdoutput():
-	for line in result:
-		print (line)
 
+'''屏幕输出函数
+'''
+def stdoutput():
+	for lines in result:
+		if isinstance(lines, tuple):
+			outputstr = get_std_output(lines)
+			print(outputstr)
+		else:
+			print(lines)
+
+'''获取标识符以及关键字的函数
+'''
 def detector(content):
+	global idnum
 	if not content:
 		return
 	if content in keywords:
 		result.append(('keywords',content))
 	else:
-		if content not in idmaps:
-			idmaps.append(content)
+		if content not in idmaps.keys():
+			idmaps[content] = (idnum, line) #记录标识符时也同时记录了标识符对应的行号
+			idnum += 1
 		result.append(('id',content))
 
-
+'''判断变量命名是否符合规范
+'''
 def isidentify(ch):
 	if ch=='_' or str.isalpha(ch):
 		return True
 	return False
 
+
+'''注释自动机，识别//以及/*两种注释方式
+'''
 def is_comment(filein):
 	global line
 	global col
@@ -61,7 +110,7 @@ def is_comment(filein):
 	if nextc == '/':
 		while 1:
 			nextc = filein.read(1)
-			tmpline+= 1
+			tmpcol+= 1
 			if nextc == '\n':
 				col=0
 				line=tmpline+1
@@ -95,6 +144,9 @@ def is_comment(filein):
 	else:
 		return False	
 
+
+'''获取操作符的自动机
+'''
 def get_operation(c,filein):
 	global col
 	nextc=filein.read(1)
@@ -113,6 +165,8 @@ def get_operation(c,filein):
 		col-=1
 	return
 
+'''字符验证的自动机，能识别未闭合的字符，以及字符数超过1的字符
+'''
 def char_DFA(filein):
 	global col
 	global line
@@ -130,6 +184,10 @@ def char_DFA(filein):
 		filein.seek(-2,1)
 		col-=2
 	return
+
+
+'''字符串验证的自动机，能识别未闭合的字符串
+'''
 
 def string_DFA(filein):
 	global col
@@ -161,12 +219,16 @@ def string_DFA(filein):
 		result.append(outputstr)
 		filein.seek(-len(string),1)
 	return
+
+'''识别科学计数法的自动机
+'''
 def scientific_num_DFA(num, filein):
 	global col
 	global line
 	state = 0
 	while True:
 		nextc = filein.read(1)
+		col += 1
 		if nextc in ['-', '+'] and state == 0:
 			state = 1
 			num += nextc
@@ -175,8 +237,10 @@ def scientific_num_DFA(num, filein):
 		else:
 			result.append(('number', num))
 			filein.seek(-1, 1)
+			col -= 1
 			return
-
+'''识别10进制整数以及小数的自动机
+'''
 def number_DFA(c, filein):
 	global col
 	global line
@@ -206,6 +270,8 @@ def number_DFA(c, filein):
 			return
 
 
+'''识别16进制整数的自动机
+'''
 def hex_DFA(filein):
 	global col
 	global line
@@ -229,7 +295,8 @@ def hex_DFA(filein):
 			errorflag = 1
 			num += nextc
 
-
+'''识别8进制整数的自动机
+'''
 def oct_DFA(c, filein):
 	global col
 	global line
@@ -262,29 +329,29 @@ def doToken(filename):
 	filein=open(filename,'r')
 	tmpstr=''
 	while 1:
-		c=filein.read(1)
+		c=filein.read(1) #每次读取一个字符
 		if not c:
 			break
 		col+=1
 		if c=='\n':
-			detector(tmpstr)
+			detector(tmpstr) #换行时清理未处理的变量，以及更新行号以及列号
 			tmpstr=''
 			col=0
 			line+=1
 			continue
 		elif str.isspace(c):
-			detector(tmpstr)
+			detector(tmpstr) #遇到空格时更新标识符
 			tmpstr = ''
 			continue
 		elif c in seperatelist:
 			detector(tmpstr)
 			tmpstr = ''
-			result.append(('sep',c))
+			result.append(('sep',c)) #遇到分隔符时更新标识符
 			continue
 		elif c == '/':
-			if (is_comment(filein)):
+			if (is_comment(filein)): #遇到/跳转到注释自动机
 				continue
-		elif c == '-':
+		elif c == '-': #遇到-，分别处理负数以及减号两种情况
 			#print("##############")
 			nextc = filein.read(1)
 			if (str.isdigit(nextc)):
@@ -293,18 +360,18 @@ def doToken(filename):
 				continue
 			else:
 				filein.seek(-1, 1)
-		if c in oplist:
+		if c in oplist: #跳转到操作符自动机
 			detector(tmpstr)
 			tmpstr = ''
 			get_operation(c,filein)
 			continue
-		elif c == '\'':
+		elif c == '\'': #跳转到字符自动机
 			char_DFA(filein)
 			continue
-		elif c == '\"':
+		elif c == '\"': #跳转到字符串自动机
 			string_DFA(filein)
 			continue
-		elif str.isdigit(c):
+		elif str.isdigit(c): #跳转到数字自动机
 			if not tmpstr:
 				nextc = filein.read(1)
 				col += 1
@@ -319,11 +386,12 @@ def doToken(filename):
 			else:
 				tmpstr+=c
 			continue
-		elif isidentify(c):
+		elif isidentify(c): 
 			tmpstr+=c
 			continue
 		outputstr = str(line)+':'+str(col)+"  "+'error: illegal character'
 		result.append(outputstr)
+		#处理非法字符
 
 
 
@@ -333,7 +401,7 @@ def main():
 	filename=sys.argv[1]
 	doToken(filename)
 	try:
-		if sys.argv[2]:
+		if sys.argv[2]:		#第二个参数作为输出文件
 			fileoutput(sys.argv[2])
 	except IndexError:
 		pass
